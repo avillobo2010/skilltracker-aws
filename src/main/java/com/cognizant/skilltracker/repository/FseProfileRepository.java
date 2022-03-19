@@ -9,7 +9,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 @EnableScan
 public interface FseProfileRepository extends CrudRepository<FseDocument,String> {
-
-
-//	Optional<FseDocument> findByUserId(String userId);
 }

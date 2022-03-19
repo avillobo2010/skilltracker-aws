@@ -2,10 +2,12 @@ package com.cognizant.skilltracker.service;
 
 import java.time.LocalDateTime;
 
-import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.cognizant.skilltracker.repository.FseSkillRepository;
+import com.cognizant.skilltracker.repository.SkillSearchRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,65 +24,46 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FseProfileService {
 
+    @Autowired
+    FseProfileRepository profileRepository;
+
+    @Autowired
+    FseSkillRepository profileSkillRepository;
+
 	@Autowired
-	FseProfileRepository profileRepository;
+	SkillSearchRepository skillSearchRepository;
 
-	public String addProfile(FseProfile fseProfile) {
-		FseDocument document = FseDocument.builder().name(fseProfile.getName()).id(fseProfile.getId())
-				.mobile(fseProfile.getMobile()).email(fseProfile.getEmail())
-				.skills(fseProfile.getSkills().stream().map(this::convertToSkillDocument).collect(Collectors.toList()))
-				.createdDateTime(LocalDateTime.now()).lastUpdatedDateTime(LocalDateTime.now())
-			.build();
-		profileRepository.save(document);
-		return document.getUserid();
+    public String addProfile(FseProfile fseProfile) {
+        FseDocument document = FseDocument.builder().associateName(fseProfile.getName()).associateId(fseProfile.getId())
+                .mobile(fseProfile.getMobile()).email(fseProfile.getEmail())
+                .createdDateTime(LocalDateTime.now()).lastUpdatedDateTime(LocalDateTime.now())
+                .build();
+        profileRepository.save(document);
+        List<SkillDocument> skills = fseProfile.getSkills().stream().map(
+                                     skill -> { return convertToSkillDocument(skill, document.getUserid()); }
+		                               ).collect(Collectors.toList());
+        profileSkillRepository.saveAll(skills);
+        return document.getUserid();
 
-	}
+    }
 
-	public Optional<FseDocument> getProfile(String userId) {
+    public Optional<FseDocument> getProfile(String userId) {
 		return profileRepository.findById(userId);
 
-	}
+    }
 
-	public String updateProfile(FseDocument document) {
-		profileRepository.save(document);
-		return document.getUserid();
-	}
+    public List<SkillDocument> getSkills(String userId) {
+        return skillSearchRepository.getFseSkillByCriteria(userId);
 
-	/*public List<FseProfile> getProfiles(String name, String id, String skill) {
+    }
 
-		String nameregex = "^" + name;
-		List<FseDocument> documents = profileRepository.getFseDocumentByCriteria(nameregex, id, skill);
-		return documents.stream().map(this::convertToFseProfile)
-				.filter(profile -> !CollectionUtils.isEmpty(profile.getSkills())).collect(Collectors.toList());
-	}*/
+    private SkillDocument convertToSkillDocument(Skill skill, String userid) {
+        SkillDocument skillDocument = new SkillDocument();
+        skillDocument.setExpertise(Integer.parseInt(skill.getExpertise()));
+        skillDocument.setSkillName(skill.getSkill());
+        skillDocument.setSkillType(skill.getSkillType());
+        skillDocument.setUserid(userid);
+        return skillDocument;
+    }
 
-	private FseProfile convertToFseProfile(FseDocument document) {
-		FseProfile profile = new FseProfile();
-		profile.setName(document.getName());
-		profile.setId(document.getId());
-		profile.setMobile(document.getMobile());
-		profile.setEmail(document.getEmail());
-		profile.setLastUpdatedDateTime(document.getLastUpdatedDateTime());
-		profile.setCreatedDateTime(document.getCreatedDateTime());
-		profile.setSkills(document.getSkills().stream().filter(s -> s.getExpertise() >= 10)
-				.sorted(Comparator.comparingInt(SkillDocument::getExpertise)).map(this::convertToSkill)
-				.collect(Collectors.toList()));
-		return profile;
-	}
-
-	private SkillDocument convertToSkillDocument(Skill skill) {
-		SkillDocument skillDocument = new SkillDocument();
-		skillDocument.setExpertise(Integer.parseInt(skill.getExpertise()));
-		skillDocument.setSkill(skill.getSkill());
-		skillDocument.setSkillType(skill.getSkillType());
-		return skillDocument;
-	}
-
-	private Skill convertToSkill(SkillDocument skillDocument) {
-		Skill skill = new Skill();
-		skill.setExpertise(String.valueOf(skillDocument.getExpertise()));
-		skill.setSkill(skillDocument.getSkill());
-		skill.setSkillType(skillDocument.getSkillType());
-		return skill;
-	}
 }
